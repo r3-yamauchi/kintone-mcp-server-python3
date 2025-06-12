@@ -1,104 +1,393 @@
-# kintone MCP Server (Python3)
+# kintone MCP Server (Python3) サンプル
 
-kintone REST APIと連携するためのMCP (Model Context Protocol) サーバーです。
+kintone REST APIと連携するためのMCP (Model Context Protocol) サーバーのサンプル実装です。
+このサーバーは、AI アシスタント（Claude等）がkintoneのデータを読み取り、操作できるようにするためのブリッジとして機能します。
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/r3-yamauchi/kintone-mcp-server-python3)
 
-## 機能
+## 主な特徴
+
+- 🔐 **セキュアな認証**: APIトークン認証とパスワード認証の両方をサポート
+- 📊 **完全なCRUD操作**: レコードの作成・読み取り・更新・削除が可能
+- 📄 **自動ページネーション**: 大量のレコードを効率的に処理
+- 🔍 **高度なクエリ機能**: kintoneのクエリ構文をフルサポート
+- 📎 **ファイル管理**: ファイルのアップロード・ダウンロードに対応
+- 💬 **コメント機能**: レコードへのコメント追加・取得
+- 🔄 **ステータス管理**: プロセス管理のステータス更新
+- 🚀 **非同期処理**: 高速なレスポンスと効率的なリソース使用
+- 🛡️ **堅牢なエラー処理**: 詳細なエラーメッセージと適切な例外処理
+- 🌐 **国際化対応**: 多言語フィールドのサポート
+
+## 利用可能なツール
 
 ### レコード操作
-- 単一/複数レコードの取得（`get_record`, `get_records`, `get_all_records`）
-- レコードの作成（`add_record`, `add_records`）
-- レコードの更新（`update_record`, `update_records`）
-- レコードへのコメント追加/取得（`add_comment`, `get_comments`）
-- ステータス更新（`update_status`, `update_statuses`）
+| ツール名 | 説明 | 主な用途 |
+|---------|-----|---------|
+| `get_record` | 単一レコードの取得 | 特定のレコードの詳細情報を取得 |
+| `get_records` | レコード一覧の取得（ページネーション付き） | 条件に合うレコードを検索・取得 |
+| `get_all_records` | 全レコードの自動取得 | 大量レコードの一括取得（自動ページネーション） |
+| `add_record` | 単一レコードの追加 | 新規レコードの作成 |
+| `add_records` | 複数レコードの一括追加（最大100件） | バッチ処理による効率的なレコード作成 |
+| `update_record` | 単一レコードの更新 | 既存レコードの情報更新 |
+| `update_records` | 複数レコードの一括更新（最大100件） | バッチ処理による効率的なレコード更新 |
 
-### ファイル操作
-- ファイルのアップロード（`upload_file`）
-- ファイルのダウンロード（`download_file`）
+### コメント・ステータス操作
+| ツール名 | 説明 | 主な用途 |
+|---------|-----|---------|
+| `get_comments` | レコードのコメント取得 | コミュニケーション履歴の確認 |
+| `add_comment` | レコードへのコメント追加 | メンション付きコメントの投稿 |
+| `update_status` | レコードのステータス更新 | ワークフローの進行 |
+| `update_statuses` | 複数レコードのステータス一括更新 | 効率的なワークフロー処理 |
 
-### アプリ管理
-- アプリ情報の取得（`get_app`, `get_apps`）
-- フォームフィールド設定の取得（`get_form_fields`）
+### ファイル・アプリ管理
+| ツール名 | 説明 | 主な用途 |
+|---------|-----|---------|
+| `upload_file` | ファイルのアップロード | 添付ファイルの登録 |
+| `download_file` | ファイルのダウンロード | 添付ファイルの取得 |
+| `get_app` | アプリ情報の取得 | アプリ設定の確認 |
+| `get_apps` | アプリ一覧の検索・取得 | 利用可能なアプリの探索 |
+| `get_form_fields` | フォームフィールド設定の取得 | アプリ構造の理解 |
 
-### その他の機能
-- APIトークン認証とパスワード認証の両方をサポート
-- 自動ページネーション処理
-- クエリによるフィルタリング機能
-- すべてのAPIリクエストをPOST + X-HTTP-Method-Overrideで実行
-- エラーハンドリングと詳細なエラーメッセージ
+## 必要条件
 
-## インストール
+- Python 3.12以上
+- kintone環境へのアクセス権限
+- APIトークンまたはユーザー認証情報
 
-### uv/uvxを使用する場合
+## MCPクライアント設定
 
-```bash
-# uvxでインストール
-uvx kintone-mcp-server-python3
+### Claude Desktop設定
 
-# またはuvでインストール
-uv tool install kintone-mcp-server-python3
+Claude Desktopでこのサーバーを使用するには、設定ファイルに以下を追加してください。
+
+#### 設定ファイルの場所
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+#### uvxを使用（推奨）
+
+GitHubから直接実行する設定：
+
+```json
+{
+  "mcpServers": {
+    "kintone": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git",
+        "kintone-mcp-server-python3"
+      ],
+      "env": {
+        "KINTONE_SUBDOMAIN": "your-subdomain",
+        "KINTONE_API_TOKEN": "your-api-token",
+        "KINTONE_AUTH_TYPE": "api_token",
+        "KINTONE_DOMAIN": "cybozu.com",
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
 ```
 
-### pipを使用する場合
+**重要**: 
+- `KINTONE_SUBDOMAIN`と`KINTONE_API_TOKEN`は必ず実際の値に置き換えてください
+- 環境変数は`claude_desktop_config.json`内に直接記載されます
+- 設定変更後はClaude Desktopを再起動してください
+
+#### Pythonを直接使用（代替）
+
+```json
+{
+  "mcpServers": {
+    "kintone": {
+      "command": "python3",
+      "args": ["-m", "kintone_mcp_server_python3"],
+      "env": {
+        "KINTONE_SUBDOMAIN": "your-subdomain",
+        "KINTONE_API_TOKEN": "your-api-token",
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+### VS Code設定
+
+VS CodeのMCP拡張機能を使用する場合：
+
+```json
+{
+  "mcp.servers": {
+    "kintone": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git",
+        "kintone-mcp-server-python3"
+      ],
+      "env": {
+        "KINTONE_SUBDOMAIN": "your-subdomain",
+        "KINTONE_API_TOKEN": "your-api-token",
+        "KINTONE_AUTH_TYPE": "api_token",
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+### 複数環境の設定例
+
+本番環境と開発環境を分けて管理する場合：
+
+```json
+{
+  "mcpServers": {
+    "kintone-prod": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git",
+        "kintone-mcp-server-python3"
+      ],
+      "env": {
+        "KINTONE_SUBDOMAIN": "production",
+        "KINTONE_API_TOKEN": "prod-api-token",
+        "KINTONE_AUTH_TYPE": "api_token",
+        "KINTONE_DOMAIN": "cybozu.com",
+        "LOG_LEVEL": "WARNING"
+      }
+    },
+    "kintone-dev": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git",
+        "kintone-mcp-server-python3"
+      ],
+      "env": {
+        "KINTONE_SUBDOMAIN": "development",
+        "KINTONE_API_TOKEN": "dev-api-token",
+        "KINTONE_AUTH_TYPE": "api_token",
+        "KINTONE_DOMAIN": "cybozu.com",
+        "LOG_LEVEL": "DEBUG"
+      }
+    }
+  }
+}
+```
+
+### パスワード認証を使用する場合の設定例
+
+APIトークンの代わりにユーザー名/パスワード認証を使用する場合：
+
+```json
+{
+  "mcpServers": {
+    "kintone-password": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git",
+        "kintone-mcp-server-python3"
+      ],
+      "env": {
+        "KINTONE_SUBDOMAIN": "your-subdomain",
+        "KINTONE_AUTH_TYPE": "password",
+        "KINTONE_USERNAME": "your-username",
+        "KINTONE_PASSWORD": "your-password",
+        "KINTONE_DOMAIN": "cybozu.com",
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+### 設定のポイント
+
+1. **環境変数の直接記載**
+   - すべての環境変数は`env`セクション内に直接記載します
+   - `.env`ファイルは不要です
+
+2. **uvxの利点**
+   - 事前のインストールが不要
+   - 常に最新版を実行
+   - 依存関係の競合を回避
+
+3. **セキュリティの注意点**
+   - `claude_desktop_config.json`にはAPIトークンなどの機密情報が含まれます
+   - このファイルを他人と共有しないでください
+   - Gitリポジトリにコミットしないよう注意してください
+
+## トラブルシューティング
+
+### よくある問題と解決方法
+
+#### 接続エラー
+
+```
+Error: Failed to connect to kintone
+```
+
+**解決方法**:
+1. `KINTONE_SUBDOMAIN`が正しいか確認
+2. ネットワーク接続を確認
+3. ファイアウォール設定を確認
+
+#### 認証エラー
+
+```
+Error: Authentication failed (401)
+```
+
+**解決方法**:
+1. APIトークンが正しいか確認
+2. APIトークンに必要な権限があるか確認
+3. アプリの設定でAPIトークンが有効になっているか確認
+
+#### 権限エラー
+
+```
+Error: Permission denied (403)
+```
+
+**解決方法**:
+1. ユーザーにアプリへのアクセス権限があるか確認
+2. APIトークンに必要な権限が付与されているか確認
+3. レコードのアクセス権限を確認
+
+#### レート制限エラー
+
+```
+Error: Rate limit exceeded (429)
+```
+
+**解決方法**:
+1. リクエスト頻度を下げる
+2. バッチ処理を使用する（`add_records`、`update_records`）
+3. 処理を分散させる
+
+### デバッグモード
+
+詳細なログを出力するには：
 
 ```bash
-pip install kintone-mcp-server-python3
+export LOG_LEVEL=DEBUG
+uvx --from git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git kintone-mcp-server-python3
+```
+
+## ソースコードをローカルインストールする場合
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/r3-yamauchi/kintone-mcp-server-python3.git
+cd kintone-mcp-server-python3
+
+# 依存関係をインストール
+pip install -e .
+
+# 実行
+python -m kintone_mcp_server_python3
 ```
 
 ## 設定
 
-サーバーは環境変数で設定します。
+### 環境変数の設定
 
-### 環境変数
+サーバーは環境変数で設定します。プロジェクトルートに`.env`ファイルを作成するか、環境変数を直接設定してください。
 
-プロジェクトルートに`.env`ファイルを作成：
+#### 基本設定
 
 ```bash
-# 認証タイプ: "api_token" または "password"
-KINTONE_AUTH_TYPE=api_token
-
 # kintoneサブドメイン（必須）
+# 例: https://example.cybozu.com の場合は "example"
 KINTONE_SUBDOMAIN=your-subdomain
 
-# kintoneドメイン（オプション、デフォルト: cybozu.com）
+# kintoneドメイン（オプション）
+# デフォルト: cybozu.com
+# cybozu.cn（中国）やcustom.comなどの場合に指定
 KINTONE_DOMAIN=cybozu.com
 
-# APIトークン認証の場合
-KINTONE_API_TOKEN=your-api-token
+# ログレベル（オプション）
+# DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL=INFO
+```
 
-# パスワード認証の場合
+#### 認証設定
+
+##### APIトークン認証（推奨）
+
+```bash
+# 認証タイプ
+KINTONE_AUTH_TYPE=api_token
+
+# APIトークン
+# kintoneアプリの設定画面から生成
+KINTONE_API_TOKEN=your-api-token
+```
+
+##### パスワード認証
+
+```bash
+# 認証タイプ
+KINTONE_AUTH_TYPE=password
+
+# ユーザー認証情報
 KINTONE_USERNAME=your-username
 KINTONE_PASSWORD=your-password
 ```
 
-## 使用方法
+### APIトークンの生成方法
 
-### サーバーの起動
+1. kintoneアプリの設定画面を開く
+2. 「設定」タブ → 「APIトークン」をクリック
+3. 必要な権限にチェックを入れる：
+   - レコード閲覧
+   - レコード追加
+   - レコード編集
+   - レコード削除（必要に応じて）
+   - アプリ管理（アプリ情報取得に必要）
+4. 「生成」をクリックしてトークンをコピー
+5. 「保存」をクリックして設定を反映
 
-#### uvxを使用（推奨）
+## クイックスタート
+
+### 1. 環境変数の設定
 
 ```bash
-# uvxで実行
-uvx kintone-mcp-server-python3
+# 設定ファイルのサンプルをコピー
+cp .env.example .env
+
+# .envファイルを編集して認証情報を設定
+# KINTONE_SUBDOMAIN=your-subdomain
+# KINTONE_API_TOKEN=your-api-token
 ```
 
-#### Pythonを直接使用
+### 2. サーバーの起動
 
 ```bash
-# pipインストール後
-python3 -m kintone_mcp_server_python3
+# uvxを使用（推奨）
+uvx --from git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git kintone-mcp-server-python3
 
-# ソースコードから（開発時）
-cd /path/to/kintone-mcp-server-python3
-pip install -e .
+# またはローカルインストール後
 python3 -m kintone_mcp_server_python3
-
-# またはメインモジュールを直接実行
-python3 src/kintone_mcp_server_python3/__main__.py
 ```
 
-### 利用可能なツール
+### 3. MCPクライアントでの使用
+
+Claude Desktop、VS Code、または他のMCP対応クライアントで設定してください（設定例は後述）。
+
+## 使用例
+
+### 基本的な使い方
 
 #### get_records
 
@@ -523,177 +812,100 @@ kintoneからファイルをダウンロードします。
 }
 ```
 
-## MCPクライアント設定
-
-MCPクライアントでこのサーバーを使用するには、以下の設定を追加してください：
-
-### uvxを使用（推奨）
-
-```json
-{
-  "mcpServers": {
-    "kintone": {
-      "command": "uvx",
-      "args": ["kintone-mcp-server-python3"],
-      "env": {
-        "KINTONE_SUBDOMAIN": "your-subdomain",
-        "KINTONE_API_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-### Pythonを直接使用（代替）
-
-```json
-{
-  "mcpServers": {
-    "kintone": {
-      "command": "python3",
-      "args": ["-m", "kintone_mcp_server_python3"],
-      "env": {
-        "KINTONE_SUBDOMAIN": "your-subdomain",
-        "KINTONE_API_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-### 両方のオプションを含む完全な例
-
-```json
-{
-  "mcpServers": {
-    "kintone": {
-      "command": "uvx",
-      "args": ["kintone-mcp-server-python3"],
-      "env": {
-        "KINTONE_SUBDOMAIN": "your-subdomain",
-        "KINTONE_API_TOKEN": "your-api-token"
-      }
-    },
-    "kintone-python": {
-      "command": "python3",
-      "args": ["-m", "kintone_mcp_server_python3"],
-      "env": {
-        "KINTONE_SUBDOMAIN": "your-subdomain",
-        "KINTONE_API_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-### パス指定について
-
-#### 実行パスの動作
-
-**uvxの場合**
-- `"args": ["kintone-mcp-server-python3"]`と指定すると、PyPIからパッケージを自動的にダウンロード・実行
-- カレントディレクトリに関係なく動作
-- インストール不要で利用可能
-
-**python3 -mの場合**
-- `"args": ["-m", "kintone_mcp_server_python3"]`と指定
-- `pip install`でインストール済みの場合、どこからでも実行可能
-- Pythonのモジュール検索パスに依存
-
-#### 相対パス指定
-
-```json
-{
-  "mcpServers": {
-    "kintone-dev": {
-      "command": "python3",
-      "args": ["./src/kintone_mcp_server_python3/__main__.py"],
-      "env": {
-        "KINTONE_SUBDOMAIN": "your-subdomain",
-        "KINTONE_API_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-#### 絶対パス指定
-
-```json
-{
-  "mcpServers": {
-    "kintone-local": {
-      "command": "python3",
-      "args": ["/path/to/kintone-mcp-server-python3/src/kintone_mcp_server_python3/__main__.py"],
-      "env": {
-        "KINTONE_SUBDOMAIN": "your-subdomain",
-        "KINTONE_API_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-#### 開発環境での実行（PYTHONPATH使用）
-
-```json
-{
-  "mcpServers": {
-    "kintone-dev": {
-      "command": "python3",
-      "args": ["-m", "kintone_mcp_server_python3"],
-      "env": {
-        "PYTHONPATH": "/path/to/kintone-mcp-server-python3/src",
-        "KINTONE_SUBDOMAIN": "your-subdomain",
-        "KINTONE_API_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-#### 推奨される使用方法
-
-- **本番環境**: `pip install`または`uvx`を使用（パス指定不要）
-- **開発環境**: 絶対パスまたはPYTHONPATH設定
-- **テスト環境**: `pip install -e .`（編集可能インストール）後、モジュールとして実行
-
 ## 開発
 
-### セットアップ
+### 開発環境のセットアップ
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/yourusername/kintone-mcp-server-python3.git
+git clone https://github.com/r3-yamauchi/kintone-mcp-server-python3.git
 cd kintone-mcp-server-python3
 
-# 依存関係をインストール
+# 仮想環境の作成（推奨）
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
+# venv\Scripts\activate  # Windows
+
+# 開発用依存関係をインストール
 pip install -e ".[dev]"
+
+# 環境変数の設定
+cp .env.example .env
+# .envファイルを編集して必要な設定を追加
+
+# pre-commitフックの設定（推奨）
+pre-commit install
 ```
 
-### テストの実行
+### テスト
 
 ```bash
+# すべてのテストを実行
 pytest
+
+# カバレッジレポート付きでテスト実行
+pytest --cov=kintone_mcp_server_python3 --cov-report=html
+
+# 特定のテストファイルを実行
+pytest tests/test_auth.py
+
+# 特定のテストを実行
+pytest tests/test_auth.py::test_api_token_auth -v
 ```
 
-### コード品質
+### コード品質管理
 
 ```bash
-# コードフォーマット
+# コードフォーマット（Black）
 black src tests
 
-# リント
+# リンティング（Ruff）
 ruff check src tests
+ruff check src tests --fix  # 自動修正
 
-# 型チェック
+# 型チェック（MyPy）
 mypy src
+
+# すべてのチェックを実行
+make lint  # Makefileがある場合
+# または
+black src tests && ruff check src tests && mypy src
 ```
+
+### リリース手順
+
+1. バージョン番号を更新（`pyproject.toml`）
+2. 変更履歴を更新（CHANGELOG.md）
+3. テストを実行して成功を確認
+4. コード品質チェック：
+   ```bash
+   black src tests
+   ruff check src tests
+   mypy src
+   ```
+5. GitHubにプッシュ：
+   ```bash
+   git add .
+   git commit -m "Release v0.1.0"
+   git tag v0.1.0
+   git push origin main --tags
+   ```
+6. GitHubでリリースノートを作成（オプション）
+
+## FAQ
+
+### Q: 複数のkintone環境を同時に使用できますか？
+
+A: はい、MCPクライアントの設定で複数のサーバーインスタンスを定義できます。環境ごとに異なる名前（例：`kintone-prod`、`kintone-dev`）を付けてください。
+
+### Q: 日本語以外の言語でフィールド情報を取得できますか？
+
+A: はい、`get_form_fields`ツールで`lang`パラメータを使用することで、英語（en）、中国語（zh）、スペイン語（es）などでフィールド情報を取得できます。
+
+## 著者
+
+r3-yamauchi
 
 ## ライセンス
 
-MIT
-
-## 貢献
-
-プルリクエストは歓迎します！お気軽にご提出ください。
+このプロジェクトはMITライセンスの下で公開されています。詳細は[LICENSE](LICENSE)ファイルを参照してください。

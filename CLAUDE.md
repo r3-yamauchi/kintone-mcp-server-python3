@@ -9,8 +9,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # 開発環境のセットアップ（編集可能インストール）
 pip install -e ".[dev]"
 
-# 通常のインストール
-pip install .
+# GitHubからインストール
+pip install git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git
+
+# uvxを使用した実行（インストール不要、推奨）
+uvx --from git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git kintone-mcp-server-python3
+
+# 環境変数の設定ファイルを作成
+cp .env.example .env
+# .envファイルを編集して認証情報を設定
 ```
 
 ### ビルドとパッケージング
@@ -18,8 +25,14 @@ pip install .
 # パッケージのビルド（hatchlingを使用）
 python -m build
 
-# PyPIへの公開準備
-python -m twine upload dist/*
+# ビルド成果物の確認
+ls -la dist/
+
+# GitHubへのプッシュ
+git add .
+git commit -m "Release vX.Y.Z"
+git tag vX.Y.Z
+git push origin main --tags
 ```
 
 ### コード品質管理
@@ -36,12 +49,19 @@ mypy src
 
 # すべてのチェックを実行
 black src tests && ruff check src tests && mypy src
+
+# pre-commitフックの設定（推奨）
+pre-commit install
+pre-commit run --all-files
 ```
 
 ### テスト実行
 ```bash
 # すべてのテストを実行
 pytest
+
+# 詳細な出力付きでテスト実行
+pytest -v
 
 # 特定のテストファイルを実行
 pytest tests/test_auth.py
@@ -51,6 +71,12 @@ pytest tests/test_auth.py::test_api_token_auth
 
 # カバレッジ付きでテスト実行
 pytest --cov=kintone_mcp_server_python3 --cov-report=html
+
+# 並列実行で高速化
+pytest -n auto
+
+# 失敗したテストのみ再実行
+pytest --lf
 ```
 
 ### サーバーの起動
@@ -58,13 +84,44 @@ pytest --cov=kintone_mcp_server_python3 --cov-report=html
 # 環境変数を使用して起動
 export KINTONE_SUBDOMAIN=your-subdomain
 export KINTONE_API_TOKEN=your-api-token
+export LOG_LEVEL=INFO
+python3 -m kintone_mcp_server_python3
+
+# .envファイルを使用して起動
 python3 -m kintone_mcp_server_python3
 
 # 開発環境から直接起動
 python3 src/kintone_mcp_server_python3/__main__.py
 
-# uvxを使用（インストール後）
-uvx kintone-mcp-server-python3
+# uvxを使用（推奨）
+uvx --from git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git kintone-mcp-server-python3
+
+# デバッグモードで起動
+LOG_LEVEL=DEBUG uvx --from git+https://github.com/r3-yamauchi/kintone-mcp-server-python3.git kintone-mcp-server-python3
+```
+
+### 開発用コマンド
+```bash
+# 依存関係の更新
+pip install --upgrade -e ".[dev]"
+
+# 環境のクリーンアップ
+rm -rf build/ dist/ *.egg-info/
+find . -type d -name "__pycache__" -exec rm -rf {} +
+
+# ログの確認（デバッグ時）
+tail -f /path/to/log/file
+
+# MCPクライアントの設定確認
+cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | jq .
+
+# プロセスの確認（デバッグ用）
+ps aux | grep kintone-mcp-server
+
+# 仮想環境の作成（推奨）
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
+# venv\Scripts\activate  # Windows
 ```
 
 ## 高レベルのコードアーキテクチャと構造
@@ -84,7 +141,11 @@ kintone-mcp-server-python3/
 │   ├── server.py         # MCPサーバー実装
 │   ├── tools.py          # MCPツール定義レジストリ
 │   └── utils.py          # ユーティリティ関数（バリデーション等）
-└── tests/                # テストスイート
+├── tests/                # テストスイート
+├── .env.example          # 環境変数の設定例
+├── pyproject.toml        # プロジェクト設定、依存関係
+├── LICENSE               # MITライセンス
+└── README.md             # プロジェクトドキュメント
 ```
 
 ### 主要コンポーネント
@@ -96,6 +157,13 @@ kintone-mcp-server-python3/
 - **create_auth()**: 設定から適切な認証インスタンスを生成
 
 認証ヘッダーの生成とベースURLの管理を担当。
+
+```python
+# 使用例
+auth = create_auth(auth_config)
+headers = auth.get_auth_headers()
+base_url = auth.get_base_url()
+```
 
 #### 2. APIクライアント (`client.py`)
 - **KintoneClient**: kintone REST API v1との通信を管理
@@ -181,6 +249,27 @@ kintone-mcp-server-python3/
 - kintone APIクライアントは同期的（requests）
 - 将来的に非同期APIクライアントへの移行が可能な設計
 
+### テスト戦略
+- **単体テスト**: 各コンポーネントの独立したテスト
+- **統合テスト**: APIクライアントとサーバーの連携テスト
+- **モックの使用**: 外部API呼び出しはモック化
+- **テストカバレッジ**: 80%以上を目標
+- **エッジケース**: 境界値、エラーケースを重点的にテスト
+
+### パフォーマンス最適化
+- **バッチ処理**: 大量データは`add_records`、`update_records`を使用
+- **ページネーション**: 大量レコード取得時は適切なlimit設定
+- **キャッシュ**: 頻繁にアクセスするアプリ情報はキャッシュ検討
+- **非同期処理**: MCPサーバーレベルでの非同期処理を活用
+- **接続プーリング**: requests.Sessionを使用した接続再利用
+
+### セキュリティ考慮事項
+- **認証情報**: 環境変数または.envファイルで管理
+- **入力検証**: すべての入力をサニタイズ（utils.py）
+- **パストラバーサル防止**: ファイルパスの検証を徹底
+- **エラー情報**: 内部構造を露出しないエラーメッセージ
+- **ログ**: センシティブ情報をログに出力しない
+
 ### 拡張可能なポイント
 - 新しいツールの追加は`tools.py`の`TOOLS`辞書に定義を追加
 - 対応するハンドラーメソッドを`server.py`に実装
@@ -195,23 +284,138 @@ kintone-mcp-server-python3/
 - 定数は`constants.py`に定義（マジックナンバーを避ける）
 - バリデーションは`utils.py`の関数を使用
 - 新しい例外は`exceptions.py`の階層に追加
+- ドキュメント文字列（docstring）を必ず記述
+- コミットメッセージは明確で簡潔に
 
 ### APIリクエストの実装方針
 - すべてのkintone REST APIリクエストはPOSTメソッドを使用
 - 本来のHTTPメソッド（GET、PUT、DELETE等）はX-HTTP-Method-Overrideヘッダーで指定
 - URLパラメータはJSONボディとして送信
 - エラーハンドリングは専用の例外クラスを使用
+- レスポンスの型変換はPydanticモデルで実施
 
 ### 新しいkintone APIを追加する場合
 1. `models.py`に必要なリクエスト/レスポンスモデルを追加
-2. `client.py`に新しいAPIメソッドを実装
+   ```python
+   # 例: 新しいAPIのモデル
+   class NewFeatureRequest(BaseModel):
+       app: int
+       field: str
+   ```
+
+2. `client.py`に新しいAPIメソッドを実装（docstring必須）
+   ```python
+   def new_feature(self, app: int, field: str) -> dict:
+       """新機能の実装."""
+       # 実装
+   ```
+
 3. `tools.py`の`TOOLS`辞書に新しいツール定義を追加
+   ```python
+   "new_feature": {
+       "description": "新機能の説明",
+       "handler": "_new_feature",
+       "schema": {...}
+   }
+   ```
+
 4. `server.py`に対応するハンドラーメソッドを実装
 5. 必要に応じて`constants.py`に定数を追加
+6. `tests/`に対応するテストケースを追加
+7. README.mdの使用例セクションを更新
 
-### 利用可能なツール（2024年12月時点）
-- **レコード操作**: get_record, get_records, get_all_records, add_record, add_records, update_record, update_records
-- **コメント操作**: get_comments, add_comment
-- **ステータス操作**: update_status, update_statuses
-- **ファイル操作**: upload_file, download_file
-- **アプリ情報**: get_app, get_apps, get_form_fields
+### トラブルシューティングガイド
+
+#### 接続エラー
+```bash
+# サブドメインの確認
+echo $KINTONE_SUBDOMAIN
+# ネットワーク接続の確認
+curl -I https://$KINTONE_SUBDOMAIN.cybozu.com
+```
+
+#### 認証エラー
+- APIトークンの権限を確認（レコード閲覧、追加、編集等）
+- APIトークンが有効になっているか確認
+- パスワード認証の場合、2要素認証の設定を確認
+
+#### レート制限エラー
+```python
+# バッチ処理の例
+records = [...]  # 大量のレコード
+for i in range(0, len(records), 100):
+    batch = records[i:i+100]
+    client.add_records(app_id, batch)
+    time.sleep(1)  # 1秒待機
+```
+
+#### デバッグ方法
+```bash
+# 詳細ログを有効化
+LOG_LEVEL=DEBUG python -m kintone_mcp_server_python3
+
+# リクエスト/レスポンスの確認
+# client.pyに以下を追加
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+### リリースプロセス
+1. すべてのテストが成功することを確認
+2. CHANGELOGを更新
+3. バージョン番号を更新（pyproject.toml）
+4. タグを作成してGitHubにプッシュ
+5. リリースノートを作成（必要に応じて）
+
+### 利用可能なツール（2025年1月時点）
+
+#### レコード操作
+
+- **get_record**: 単一レコードの取得
+  - 必須: `app` (アプリID), `id` (レコードID)
+- **get_records**: レコード一覧の取得（ページネーション付き）
+  - 必須: `app` (アプリID)
+  - オプション: `query`, `fields`, `limit` (最大500), `offset`
+- **get_all_records**: 全レコードの自動取得（ページネーション自動処理）
+  - 必須: `app` (アプリID)
+  - オプション: `query`, `fields`
+- **add_record**: 単一レコードの追加
+  - 必須: `app` (アプリID), `record` (フィールドデータ)
+- **add_records**: 複数レコードの一括追加（最大100件）
+  - 必須: `app` (アプリID), `records` (レコード配列)
+- **update_record**: 単一レコードの更新
+  - 必須: `app` (アプリID), `record` (更新データ)
+  - いずれか必須: `id` または `update_key`
+- **update_records**: 複数レコードの一括更新（最大100件）
+  - 必須: `app` (アプリID), `records` (更新データ配列)
+
+#### コメント・ステータス操作
+
+- **get_comments**: レコードのコメント取得
+  - 必須: `app` (アプリID), `record` (レコードID)
+  - オプション: `order`, `offset`, `limit` (最大10)
+- **add_comment**: レコードへのコメント追加（メンション対応）
+  - 必須: `app` (アプリID), `record` (レコードID), `text`
+  - オプション: `mentions` (メンション情報配列)
+- **update_status**: レコードのステータス更新（プロセス管理）
+  - 必須: `app` (アプリID), `id` (レコードID), `action`
+  - オプション: `assignee`, `revision`
+- **update_statuses**: 複数レコードのステータス一括更新（最大100件）
+  - 必須: `app` (アプリID), `records` (ステータス更新配列)
+
+#### ファイル操作
+
+- **upload_file**: ファイルのアップロード（最大10MB）
+  - 必須: `file_path` (アップロードするファイルパス)
+- **download_file**: ファイルのダウンロード
+  - 必須: `file_key`, `save_path` (保存先パス)
+
+#### アプリ管理
+
+- **get_app**: アプリ情報の取得
+  - 必須: `id` (アプリID)
+- **get_apps**: アプリ一覧の検索・取得（名前検索対応）
+  - オプション: `name` (部分一致), `ids`, `codes`, `space_ids`, `limit`, `offset`
+- **get_form_fields**: フォームフィールド設定の取得（多言語対応）
+  - 必須: `app` (アプリID)
+  - オプション: `lang` (言語コード: ja, en, zh, es)
