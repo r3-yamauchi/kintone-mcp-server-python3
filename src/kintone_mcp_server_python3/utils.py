@@ -131,6 +131,87 @@ def sanitize_query(query: Optional[str]) -> Optional[str]:
     return sanitized.strip()
 
 
+def parse_kintone_query(
+    query: Optional[str], 
+    default_limit: Optional[int] = None,
+    default_offset: Optional[int] = None
+) -> Dict[str, Any]:
+    """Parse kintone query to extract order by, limit, and offset clauses.
+    
+    Args:
+        query: The kintone query string
+        default_limit: Default limit to use if not specified in query
+        default_offset: Default offset to use if not specified in query
+        
+    Returns:
+        Dict containing:
+            - base_query: Query without order by, limit, offset clauses
+            - order_by: Order by clause if present
+            - limit: Limit value (from query or default)
+            - offset: Offset value (from query or default)
+    """
+    import re
+    
+    if not query:
+        return {
+            "base_query": "",
+            "order_by": None,
+            "limit": default_limit,
+            "offset": default_offset
+        }
+    
+    # Pattern to match order by clause (case insensitive)
+    order_pattern = r'\s+order\s+by\s+([^\s]+(?:\s+(?:asc|desc))?(?:\s*,\s*[^\s]+(?:\s+(?:asc|desc))?)*)'
+    
+    # Pattern to match limit clause (case insensitive)
+    limit_pattern = r'\s+limit\s+(\d+)'
+    
+    # Pattern to match offset clause (case insensitive)
+    offset_pattern = r'\s+offset\s+(\d+)'
+    
+    # Extract order by clause
+    order_match = re.search(order_pattern, query, re.IGNORECASE)
+    order_by = order_match.group(0).strip() if order_match else None
+    
+    # Extract limit
+    limit_match = re.search(limit_pattern, query, re.IGNORECASE)
+    query_limit = int(limit_match.group(1)) if limit_match else None
+    
+    # Extract offset
+    offset_match = re.search(offset_pattern, query, re.IGNORECASE)
+    query_offset = int(offset_match.group(1)) if offset_match else None
+    
+    # Remove order by, limit, and offset from query
+    base_query = query
+    if order_match:
+        base_query = base_query[:order_match.start()] + base_query[order_match.end():]
+    
+    # Remove limit and offset in reverse order to maintain indices
+    for pattern in [offset_pattern, limit_pattern]:
+        match = re.search(pattern, base_query, re.IGNORECASE)
+        if match:
+            base_query = base_query[:match.start()] + base_query[match.end():]
+    
+    base_query = base_query.strip()
+    
+    # Determine final limit (use smaller value if both are specified)
+    final_limit = default_limit
+    if query_limit is not None and default_limit is not None:
+        final_limit = min(query_limit, default_limit)
+    elif query_limit is not None:
+        final_limit = query_limit
+    
+    # Determine final offset (use query offset if specified)
+    final_offset = query_offset if query_offset is not None else default_offset
+    
+    return {
+        "base_query": base_query,
+        "order_by": order_by,
+        "limit": final_limit,
+        "offset": final_offset
+    }
+
+
 def format_error_response(error: Exception) -> Dict[str, Any]:
     """Format error for response.
 

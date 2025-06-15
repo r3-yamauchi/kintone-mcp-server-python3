@@ -13,7 +13,7 @@ TOOLS = {
                 "app": {"type": "integer", "description": "The app ID"},
                 "query": {
                     "type": "string",
-                    "description": "Query string to filter records (optional)",
+                    "description": "Query string to filter records (optional). Use the kintone query syntax - you can get documentation about the syntax using the get_query_language_doc tool. Note: order by, limit, and offset specified in the query will be handled intelligently to avoid conflicts with pagination parameters.",
                 },
                 "fields": {
                     "type": "array",
@@ -41,7 +41,7 @@ TOOLS = {
                 "app": {"type": "integer", "description": "The app ID"},
                 "query": {
                     "type": "string",
-                    "description": "Query string to filter records (optional)",
+                    "description": "Query string to filter records (optional). Use the kintone query syntax - you can get documentation about the syntax using the get_query_language_doc tool. Note: order by clauses in the query will be preserved, while limit and offset will be handled automatically by pagination.",
                 },
                 "fields": {
                     "type": "array",
@@ -333,6 +333,14 @@ TOOLS = {
                 },
             },
             "required": ["app"],
+        },
+    },
+    "get_query_language_doc": {
+        "description": "Get comprehensive documentation about kintone query language syntax",
+        "handler": "_get_query_language_doc",
+        "schema": {
+            "type": "object",
+            "properties": {},
         },
     },
 }

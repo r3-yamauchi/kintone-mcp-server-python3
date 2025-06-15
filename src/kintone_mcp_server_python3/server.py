@@ -11,6 +11,7 @@ from mcp.types import Tool, TextContent, ServerCapabilities, ToolsCapability
 from .auth import create_auth, KintoneAuth
 from .client import KintoneClient, KintoneAPIError
 from .models import CommentContent, UpdateRecordData
+from .query_language import get_query_language_documentation
 
 
 logger = logging.getLogger(__name__)
@@ -368,6 +369,14 @@ class KintoneMCPServer:
                         "required": ["app"],
                     },
                 ),
+                Tool(
+                    name="get_query_language_doc",
+                    description="Get comprehensive documentation about kintone query language syntax",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                    },
+                ),
             ]
 
         @self.server.call_tool()
@@ -408,6 +417,8 @@ class KintoneMCPServer:
                     result = self._get_app(arguments or {})
                 elif name == "get_form_fields":
                     result = self._get_form_fields(arguments or {})
+                elif name == "get_query_language_doc":
+                    result = self._get_query_language_doc(arguments or {})
                 else:
                     return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -617,6 +628,10 @@ class KintoneMCPServer:
 
         response = self.client.get_form_fields(app=app, lang=lang)
         return {"properties": response.properties, "revision": response.revision}
+
+    def _get_query_language_doc(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Get query language documentation."""
+        return {"documentation": get_query_language_documentation()}
 
     async def run(self) -> None:
         """Run the MCP server."""

@@ -14,6 +14,7 @@ from .constants import (
     MAX_RECORDS_PER_REQUEST,
 )
 from .exceptions import KintoneAPIError, KintoneNetworkError, KintoneValidationError
+from .utils import parse_kintone_query
 from .models import (
     GetRecordsResponse,
     GetAppsResponse,
@@ -114,16 +115,30 @@ class KintoneClient:
         Returns:
             GetRecordsResponse containing records and optional total count
         """
+        # Parse query to extract order by, limit, and offset
+        parsed_query = parse_kintone_query(query, limit, offset)
+        
         # Build request parameters
         params: Dict[str, Any] = {
             "app": app,
-            "size": min(limit, MAX_RECORDS_PER_REQUEST),
+            "size": min(parsed_query["limit"], MAX_RECORDS_PER_REQUEST) if parsed_query["limit"] is not None else MAX_RECORDS_PER_REQUEST,
         }
 
-        if query:
-            params["query"] = f"{query} limit {params['size']} offset {offset}"
+        # Build final query
+        query_parts = []
+        if parsed_query["base_query"]:
+            query_parts.append(parsed_query["base_query"])
+        if parsed_query["order_by"]:
+            query_parts.append(parsed_query["order_by"])
+        
+        # Always add limit and offset
+        query_parts.append(f"limit {params['size']}")
+        if parsed_query["offset"] is not None:
+            query_parts.append(f"offset {parsed_query['offset']}")
         else:
-            params["query"] = f"limit {params['size']} offset {offset}"
+            query_parts.append("offset 0")
+        
+        params["query"] = " ".join(query_parts)
 
         if fields:
             params["fields"] = fields
